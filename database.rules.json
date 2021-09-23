@@ -1,0 +1,64 @@
+{
+  "rules": {
+    "local": {
+      "share": {
+        "sessions": {
+          "$sessionId": {
+            ".write": "newData.child('id').val() == auth.uid || data.child('id').val() == auth.uid",
+            ".read": "data.child('id').val() == auth.uid"
+          }
+        }
+      },
+      "aniCanvas": {
+        "FUNCTION_V": {
+        	".write": false,
+        	".read": false
+        },
+        "ENV": {
+        	".write": false,
+        	".read": false
+        }
+      }
+		},
+    "stage": {
+      "share": {
+        "sessions": {
+          "$sessionId": {
+            ".write": "newData.child('id').val() == auth.uid || data.child('id').val() == auth.uid",
+            ".read": false
+          }
+        }
+      },
+      "aniCanvas": {
+        "FUNCTION_V": {
+        	".write": false,
+        	".read": false
+        },
+        "ENV": {
+        	".write": false,
+        	".read": false
+        }
+      }
+		},
+    "prod": {
+      "share": {
+        "sessions": {
+          "$sessionId": {
+            ".write": "newData.child('id').val() == auth.uid || data.child('id').val() == auth.uid",
+            ".read": "data.child('id').val() == auth.uid"
+          }
+        }
+      },
+      "aniCanvas": {
+        "FUNCTION_V": {
+        	".write": false,
+        	".read": false
+        },
+        "ENV": {
+        	".write": false,
+        	".read": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+  function isLogined() { return request.auth.uid != null }
+    match /{env}/aniCanvas {
+      match /galleries/{userId} {
+        function isOwner() {
+          return request.auth.uid == userId;
+        }
+
+        function isGalleryValidationOk() {
+          return request.resource.data.keys().hasAll([
+            'id',
+            'ref',
+            'createdAt',
+            'name',
+            'animations',
+          ]);
+        }
+
+        allow read;
+        allow create: if isOwner() && isGalleryValidationOk();
+        allow update: if isOwner();
+        allow delete: if isOwner();
+
+        match /animations/{animationId} {
+          function isAnimationValidationOk() {
+            return request.resource.data.keys().hasAll([
+              'id',
+              'ref',
+              'createdAt',
+            ]);
+          }
+
+          allow read;
+          allow create: if isOwner() && isAnimationValidationOk();
+          allow update: if isOwner();
+          allow delete: if isOwner();
+        }
+      }
+    }
+    match /{env}/share {
+      match /users/{userId} {
+        function isUserValidationOk() {
+          return request.resource.data.keys().hasAll([
+            'id',
+            'ref',
+            'createdAt',
+            'name',
+            'email',
+          ]);
+        }
+
+        function isOwner() {
+          return request.auth.uid == userId;
+        }
+
+        allow read;
+        allow create: if isOwner() && isUserValidationOk();
+        allow update: if isOwner();
+        allow delete: if isOwner();
+      }
+    }
+  }
+}

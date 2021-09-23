@@ -1,0 +1,96 @@
+{
+  "database": {
+    "rules": "database.rules.json"
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": {
+    "predeploy": [
+      "npm --prefix \"$RESOURCE_DIR\" run lint",
+      "npm --prefix \"$RESOURCE_DIR\" run build"
+    ]
+  },
+  "hosting": [
+    {
+      "target": "prod",
+      "predeploy": "npm run build:prod",
+      "public": "prod",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "headers": [ {
+        "source": "**/*.@(eot|otf|ttf|ttc|woff|font.css|pdf|mp4)",
+        "headers": [ {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        } ]
+      }]
+    },
+    {
+      "target": "stage",
+      "predeploy": "npm run build:stage",
+      "public": "stage",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "headers": [ {
+        "source": "**/*.@(eot|otf|ttf|ttc|woff|font.css|pdf|mp4)",
+        "headers": [ {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        } ]
+      }]
+    }
+  ],
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "auth": {
+      "port": 8200
+    },
+    "functions": {
+      "port": 8300
+    },
+    "firestore": {
+      "port": 8100
+    },
+    "database": {
+      "port": 8400
+    },
+    "hosting": {
+      "port": 8600
+    },
+    "pubsub": {
+      "port": 8500
+    },
+    "storage": {
+      "port": 8700
+    },
+    "ui": {
+      "enabled": true,
+      "port": 8000
+    }
+  },
+  "remoteconfig": {
+    "template": "remoteconfig.template.json"
+  }
+}

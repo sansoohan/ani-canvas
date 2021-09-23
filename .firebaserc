@@ -1,0 +1,27 @@
+{
+  "projects": {
+    "default": "ani-canvas-598e9"
+  },
+  "targets": {
+    "atenet": {
+      "hosting": {
+        "stage": [
+          "ani-canvas-stage"
+        ],
+        "prod": [
+          "ani-canvas-598e9"
+        ]
+      }
+    },
+    "ani-canvas-598e9": {
+      "hosting": {
+        "prod": [
+          "ani-canvas-598e9"
+        ],
+        "stage": [
+          "ani-canvas-stage"
+        ]
+      }
+    }
+  }
+}
