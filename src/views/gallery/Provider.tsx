@@ -210,6 +210,7 @@ export function GalleryProvider({ children }: Props) {
         const selectedAnimations = animations.splice(startAnimation, endAnimation);
         setGalleryAnimations(selectedAnimations);
         setSession(galleryRef);
+        setIsLoading(false);
       });
     });
 

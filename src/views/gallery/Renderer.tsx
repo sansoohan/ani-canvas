@@ -1,4 +1,4 @@
-import { faAngleLeft, faAngleRight, faSort, faSortDown, faSortUp, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faAngleLeft, faAngleRight, faSort, faSortDown, faSortUp, faSync, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { nanoid } from 'nanoid';
 import React, { useCallback } from 'react';
@@ -16,6 +16,7 @@ const GalleryRenderer: React.FC<Props> = () => {
   const {
     thisUser,
     userName,
+    isLoading,
     animationsPageLast,
     galleryAnimations,
     galleryAnimationFilter,
@@ -155,7 +156,22 @@ const GalleryRenderer: React.FC<Props> = () => {
         ):(<></>)}
       </div>
 
-      {galleryAnimations.length === 0 ? (
+      {isLoading ? (
+        <div
+          className='position-absolute d-flex'
+          style={{left: 0, right: 0, top: 0, bottom: 0}}
+        >
+          <div className='m-auto'>
+            <FontAwesomeIcon
+              spin
+              icon={faSync}
+              className='fs-1'
+            />
+          </div>
+        </div>
+      ) : (<></>)}
+        
+      {!isLoading && galleryAnimations.length === 0 ? (
         <div className='container p-2 d-flex flex-column'>
           <div className='alert alert-secondary text-center fs-3' role='alert'>
             No Animation
