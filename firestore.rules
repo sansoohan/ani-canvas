@@ -22,21 +22,6 @@ service cloud.firestore {
         allow create: if isOwner() && isGalleryValidationOk();
         allow update: if isOwner();
         allow delete: if isOwner();
-
-        match /animations/{animationId} {
-          function isAnimationValidationOk() {
-            return request.resource.data.keys().hasAll([
-              'id',
-              'ref',
-              'createdAt',
-            ]);
-          }
-
-          allow read;
-          allow create: if isOwner() && isAnimationValidationOk();
-          allow update: if isOwner();
-          allow delete: if isOwner();
-        }
       }
     }
     match /{env}/share {

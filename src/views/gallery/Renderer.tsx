@@ -75,10 +75,10 @@ const GalleryRenderer: React.FC<Props> = () => {
           timer: 1000,
         });
       } catch (error: any) {
-        showSuccess({
+        showError({
           title: 'Upload Animation Error',
           text: error.message,
-          timer: 1000,
+          timer: 0,
         });
       }
     }

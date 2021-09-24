@@ -164,7 +164,6 @@ export function GalleryProvider({ children }: Props) {
   }, [firestore, storage, thisUser, ANI_CANVAS_PATH, arrayRemove]);
 
   useEffect(() => {
-    let unsubscribeAnnimationsList: Array<() => void> = [];
     let unsubscribeGallery = () => {};
 
     const usersRef = [
@@ -174,10 +173,11 @@ export function GalleryProvider({ children }: Props) {
     const q = query(collection(firestore, usersRef), where('name', '==', userName));
     getDocs(q).then(async (usersSnapshot) => {
       const [userDoc] = usersSnapshot.docs;
-      let userIds = userDoc.ref.id;
 
+      let userIds = userDoc?.ref?.id;
       if (!userIds) {
         if (thisUser && userName === thisUser.name) {
+          console.log('init');
           await initThisUserGallery();
           userIds = thisUser.id;
         } else {
@@ -216,7 +216,6 @@ export function GalleryProvider({ children }: Props) {
     return () => {
       setGalleryAnimations([]);
       unsubscribeGallery();
-      unsubscribeAnnimationsList.forEach((unsubscribeGalleryAnimations) => unsubscribeGalleryAnimations());
       setIsLoading(true);
     }
   }, [ANI_CANVAS_PATH, thisUser, SHARE_PATH, animationsPageCurrent, animationsPerPage, firestore, history, initThisUserGallery, setSession, sortAnimation, userName]);
