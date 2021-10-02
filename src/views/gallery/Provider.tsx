@@ -21,7 +21,13 @@ interface GalleryValue {
   animationsPageCurrent: number;
   animationsPageLast: number;
   galleryAnimationFilter: GalleryAnimationFilter;
-  uploadAnimation: (gifFile: File, flaFile: File, meta: AnimationModel) => Promise<void>;
+  uploadAnimation: (
+    meta: AnimationModel,
+    gifFile: File,
+    flaFile: File,
+    jsFile?: File,
+    pngFile?: File,
+  ) => Promise<void>;
   removeAnimation: (meta: AnimationModel) => Promise<void>;
   setAnimationsPageCurrent: (animationsPageCurrent: number) => void;
   setGalleryAnimationFilter: (galleryAnimationFilter: GalleryAnimationFilter) => void;
@@ -47,7 +53,7 @@ export function GalleryProvider({ children }: Props) {
 
   const [ animationsPageCurrent, setAnimationsPageCurrent ] = useState<number>(0);
   const [ animationsPageLast, setAnimationPageLast ] = useState<number>(1);
-  const [ animationsPerPage, ] = useState<number>(9);
+  const [ animationsPerPage, ] = useState<number>(30);
   const [ isLoading, setIsLoading ] = useState<boolean>(true);
   const [ galleryAnimations, setGalleryAnimations ] = useState<Array<AnimationModel>>([]);
   const [ galleryAnimationFilter, setGalleryAnimationFilter ] = useState<GalleryAnimationFilter>({
@@ -101,9 +107,11 @@ export function GalleryProvider({ children }: Props) {
   }, [firestore, thisUser, ANI_CANVAS_PATH]);
 
   const uploadAnimation = useCallback(async (
+    meta: AnimationModel,
     gifFile: File,
     flaFile: File,
-    meta: AnimationModel,
+    jsFile?: File,
+    pngFile?: File,
   ) => {
     if (!thisUser) {
       return;
@@ -126,17 +134,52 @@ export function GalleryProvider({ children }: Props) {
       `fla/${flaFile.name}`,
     ].join('/');
 
-    const uploadTasks = await Promise.all([
+    let uploadPromises = [
       uploadBytes(
         storageRef(storage, gifFileRef), gifFile, {contentType: gifFile.type}
       ),
       uploadBytes(
         storageRef(storage, flaFileRef), flaFile, {contentType: flaFile.type}
       )
-    ]);
+    ];
+
+    if (jsFile && pngFile) {
+      const jsFileRef = [
+        gallaryRef,
+        `annimations/${meta.id}`,
+        `js/${jsFile.name}`,
+      ].join('/');
+  
+      const pngFileRef = [
+        gallaryRef,
+        `annimations/${meta.id}`,
+        `png/${pngFile.name}`,
+      ].join('/');
+
+      uploadPromises = [
+        ...uploadPromises,
+        uploadBytes(
+          storageRef(storage, jsFileRef), jsFile, {contentType: jsFile.type}
+        ),
+        uploadBytes(
+          storageRef(storage, pngFileRef), pngFile, {contentType: pngFile.type}
+        ),
+      ];
+    }
+
+    const uploadTasks = await Promise.all(uploadPromises);
 
     meta.gifUrl = await getDownloadURL(uploadTasks[0].ref);
+    meta.gifName = gifFile.name;
     meta.flaUrl = await getDownloadURL(uploadTasks[1].ref);
+    meta.flaName = flaFile.name;
+
+    if (jsFile && pngFile) {
+      meta.jsUrl = await getDownloadURL(uploadTasks[2].ref);
+      meta.jsName = jsFile.name;
+      meta.pngUrl = await getDownloadURL(uploadTasks[3].ref);
+      meta.pngName = pngFile.name;
+    }
 
     return updateDoc(doc(firestore, gallaryRef), {
       animations: arrayUnion(Object.assign({}, meta)),
@@ -153,10 +196,20 @@ export function GalleryProvider({ children }: Props) {
       `galleries/${thisUser.id}`,
     ].join('/');
 
-    await Promise.all([
+    const deletePromises = [
       deleteObject(storageRef(storage, meta.flaUrl)),
       deleteObject(storageRef(storage, meta.gifUrl)),
-    ]);
+    ];
+
+    if (meta.jsUrl) {
+      deletePromises.push(deleteObject(storageRef(storage, meta.jsUrl)));
+    }
+
+    if (meta.pngUrl) {
+      deletePromises.push(deleteObject(storageRef(storage, meta.pngUrl)));
+    }
+
+    await Promise.all(deletePromises);
 
     return updateDoc(doc(firestore, gallaryRef), {
       animations: arrayRemove(Object.assign({}, meta)),
