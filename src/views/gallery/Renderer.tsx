@@ -2,7 +2,7 @@ import { faAngleLeft, faAngleRight, faSort, faSortDown, faSortUp, faSync, faTras
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { ButtonGroup, Dropdown, DropdownButton } from 'react-bootstrap';
 import { nanoid } from 'nanoid';
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import ReactPaginate from 'react-paginate';
 import inputForm from '../../helpers/toaster/form/inputForm';
 import showError from '../../helpers/toaster/message/showError';
@@ -10,6 +10,124 @@ import showSuccess from '../../helpers/toaster/message/showSuccess';
 import { AnimationModel, GalleryAnimationFilter } from './animation/model';
 import { useGallery } from './Provider';
 import { StyledGallery } from './Styled';
+
+const createjs = (window as any)['createjs'];
+
+type GalleryAnimationRendererProps = {
+  animation: AnimationModel;
+};
+
+const GalleryAnimationRenderer: React.FC<GalleryAnimationRendererProps> = ({
+  animation, 
+}) => {
+  const animationContainer = useRef<HTMLDivElement>(null);
+  const domOverlayContainer = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const init = () => {
+    const AdobeAn = (window as any)['AdobeAn'];
+    if (!AdobeAn) {
+      return;
+    }
+
+    const comp=AdobeAn.getComposition("6D2E871EEB804D1693D8876BED1198AB");
+    let lib=comp.getLibrary();
+    const loader = new createjs.LoadQueue(false);
+    loader.addEventListener("fileload", function(evt: any){handleFileLoad(evt,comp)});
+    loader.addEventListener("complete", function(evt: any){handleComplete(evt,comp)});
+    lib=comp.getLibrary();
+    lib.properties.manifest.forEach((image: {src: string, id: string}) => {
+      if (image.src.includes(animation.pngName)) {
+        image.src = animation.pngUrl;
+      }
+    });
+
+    loader.loadManifest([{
+      src:"http://localhost:8700/v0/b/ani-canvas-598e9.appspot.com/o/local%2FaniCanvas%2Fgalleries%2FTxFovKhBGBgvfE7BB9uxduSgikrI%2Fannimations%2FfRTpvIKgiGa-QbqsxIUYS%2Fpng%2F_HTML5%20Canvas_atlas_1.png?alt=media&token=739af34c-0b76-43d5-b16b-295a8934618a", id:"_HTML5 Canvas_atlas_1"
+    }]);
+  }
+
+  const handleFileLoad = (evt: any, comp: any) => {
+    const images=comp.getImages();	
+    if (evt && (evt.item.type === "image")) { images[evt.item.id] = evt.result; }	
+  }
+
+  //Registers the "tick" event listener.
+  const fnStartAnimation = (stage: any, exportRoot: any, lib: any) => {
+    stage.addChild(exportRoot);
+    createjs.Ticker.framerate = lib.properties.fps;
+    createjs.Ticker.addEventListener("tick", stage);
+  }
+
+  const handleComplete = (evt: any, comp: any) => {
+    if (!canvasRef?.current || !animationContainer?.current || !domOverlayContainer?.current) {
+      return;
+    }
+
+    const AdobeAn = (window as any)['AdobeAn'];
+
+    //This function is always called, irrespective of the content. You can use the variable "stage" after it is created in token create_stage.
+    const lib=comp.getLibrary();
+    const ss=comp.getSpriteSheet();
+    const queue = evt.target;
+    const ssMetadata = lib.ssMetadata;
+    for(let i=0; i<ssMetadata.length; i++) {
+      ss[ssMetadata[i].name] = new createjs.SpriteSheet( {"images": [queue.getResult(ssMetadata[i].name)], "frames": ssMetadata[i].frames} )
+    }
+    const exportRoot = new lib._HTML5Canvas();
+    const stage = new lib.Stage(canvasRef.current);
+    stage.enableMouseOver();	
+
+    //Code to support hidpi screens and responsive scaling.
+    // AdobeAn.makeResponsive(false,'both',false,1,[canvasRef.current,animationContainer.current,domOverlayContainer.current]);
+    AdobeAn.compositionLoaded(lib.properties.id);
+    fnStartAnimation(stage, exportRoot, lib);
+  }
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = animation.jsUrl;
+    script.async = true;
+    script.onload = () => init();
+  
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    }
+  }, []);
+
+  return (
+    <>
+      {animation?.jsUrl && animation?.pngUrl ? (
+        <div ref={animationContainer}
+          className='position-relative bg-white'
+          style={{ width: '100%', aspectRatio: '4/3' }}
+        >
+          <canvas id="canvas" width="437" height="617"
+            className='position-absolute bg-white'
+            style={{ width: '100%', aspectRatio: '4/3', objectFit: 'contain' }}
+            ref={canvasRef}>
+          </canvas>
+          <div ref={domOverlayContainer}
+            className='position-absolute'
+            style={{ width: '100%', aspectRatio: '4/3', pointerEvents: 'none' }}
+          >
+          </div>
+        </div>
+      ):(
+        <img
+          style={{
+            objectFit: 'contain', width: '100%', height: '100%',
+            boxShadow: '0 10px 25px 0 rgba(0, 0, 0, .5)'
+          }}
+          src={animation.gifUrl}
+          alt={animation.name}
+        ></img>
+      )}
+    </>
+  );
+}
 
 type Props = {};
 
@@ -287,14 +405,8 @@ const GalleryRenderer: React.FC<Props> = () => {
                       ):(<></>)}
                     </DropdownButton>
                   </div>
-                  <img
-                    style={{
-                      objectFit: 'contain', width: '100%', height: '100%',
-                      boxShadow: '0 10px 25px 0 rgba(0, 0, 0, .5)'
-                    }}
-                    src={animation.gifUrl}
-                    alt={animation.name}
-                  ></img>
+
+                  <GalleryAnimationRenderer animation={animation}></GalleryAnimationRenderer>
                 </div>
               )
             })}
