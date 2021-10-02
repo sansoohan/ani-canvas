@@ -1,5 +1,6 @@
-import { faAngleLeft, faAngleRight, faSort, faSortDown, faSortUp, faSync, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faAngleLeft, faAngleRight, faSort, faSortDown, faSortUp, faSync, faTrash, faDownload, faEllipsisV } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { ButtonGroup, Dropdown, DropdownButton } from 'react-bootstrap';
 import { nanoid } from 'nanoid';
 import React, { useCallback } from 'react';
 import ReactPaginate from 'react-paginate';
@@ -32,6 +33,18 @@ const GalleryRenderer: React.FC<Props> = () => {
     ASCENDING: (<FontAwesomeIcon icon={faSortUp} className='ms-2'/>),
   }
 
+  const dropDirection = 'down';
+  const dropMenualine = 'right';
+
+  const handleDownloadFile = (fileUrl: string, fileName: string) => {
+    const a = document.createElement('a');
+    document.body.appendChild(a);
+    a.download = fileName;
+    a.href = fileUrl;
+    a.click();
+    a.remove();
+  }
+
   const handleUploadAnimation = useCallback(async () => {
     const res = await inputForm(
       {
@@ -41,11 +54,14 @@ const GalleryRenderer: React.FC<Props> = () => {
       {
         gifFile: {label: '.gif File', value: '', type: 'file', fileType: 'image/gif'},
         flaFile: {label: '.fla File', value: '', type: 'file'},
+        jsFile: {label: '.js File', value: '', type: 'file', fileType: 'application/javascript'},
+        pngFile: {label: '.png File', value: '', type: 'file', fileType: 'image/png'},
       }
     )
 
     if (res?.value) {
-      const { gifFile, flaFile } = res.value;
+      const { gifFile, flaFile, jsFile, pngFile } = res.value;
+
       if (!gifFile) {
         showError({
           title: 'Upload Animation',
@@ -67,9 +83,17 @@ const GalleryRenderer: React.FC<Props> = () => {
       const newAnimation = new AnimationModel({
         id: nanoid(),
         name: gifFile.name
-      })
+      });
+
       try {
-        await uploadAnimation(gifFile, flaFile, Object.assign({}, newAnimation));
+        await uploadAnimation(
+          Object.assign({}, newAnimation),
+          gifFile,
+          flaFile,
+          jsFile,
+          pngFile,
+        );
+
         showSuccess({
           title: 'Upload Animation Success',
           text: 'Animation Uploaded!',
@@ -146,6 +170,19 @@ const GalleryRenderer: React.FC<Props> = () => {
           </span>
         </div>
 
+        <ReactPaginate
+          previousLabel={<FontAwesomeIcon icon={faAngleLeft} className='me-3' />}
+          nextLabel={<FontAwesomeIcon icon={faAngleRight} className='ms-3' />}
+          breakLabel={'...'}
+          breakClassName={'break-me'}
+          pageCount={animationsPageLast}
+          marginPagesDisplayed={1}
+          pageRangeDisplayed={3}
+          onPageChange={(data: any) => setAnimationsPageCurrent(data.selected)}
+          containerClassName={'pagination'}
+          activeClassName={'active'}
+        />
+
         {thisUser?.name === userName ? (
           <div className='ms-auto my-auto'>
             <button
@@ -188,18 +225,73 @@ const GalleryRenderer: React.FC<Props> = () => {
                   style={{ width: '33.3%', height: '33.3%'}}
                 >
                   <div className='d-flex' style={{ width: '100%'}}>
-                    <span className='me-auto text-dark text-break fs-5'>{animation.name}</span>
-                    {thisUser?.name === userName ? (
-                      <button
-                        className='btn btn-secondary ms-auto'
-                        onClick={() => handleRemoveAnimation(animation)}
+                    <span className='me-auto text-dark text-break fs-5 my-2 ms-2'>
+                      {animation.name}
+                    </span>
+
+                    <DropdownButton
+                      menuAlign={dropMenualine}
+                      as={ButtonGroup}
+                      key={dropDirection}
+                      id={`dropdown-button-drop-${dropDirection}`}
+                      className={'dropdown-buttons ms-auto my-2 me-2'}
+                      size='sm'
+                      drop={dropDirection}
+                      variant=''
+                      title={<FontAwesomeIcon icon={faEllipsisV}/>}
+                    >
+                      {thisUser?.name === userName ? (
+                        <Dropdown.Item
+                          eventKey='0'
+                          onClick={() => handleRemoveAnimation(animation)}
+                        >
+                          <FontAwesomeIcon icon={faTrash} className='me-2'/>
+                          Remove
+                        </Dropdown.Item>
+                      ):(<></>)}
+
+                      <Dropdown.Item
+                        eventKey='1'
+                        onClick={() => handleDownloadFile(animation.gifUrl, animation.gifName)}
                       >
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
-                    ):(<></>)}
+                        <FontAwesomeIcon icon={faDownload} className='me-2'/>
+                        {animation.gifName}
+                      </Dropdown.Item>
+
+                      <Dropdown.Item
+                        eventKey='2'
+                        onClick={() => handleDownloadFile(animation.flaUrl, animation.flaName)}
+                      >
+                        <FontAwesomeIcon icon={faDownload} className='me-2'/>
+                        {animation.flaName}
+                      </Dropdown.Item>
+
+                      {animation?.jsName && animation?.pngName ? (
+                        <>
+                          <Dropdown.Item
+                            eventKey='3'
+                            onClick={() => handleDownloadFile(animation.jsUrl, animation.jsName)}
+                          >
+                            <FontAwesomeIcon icon={faDownload} className='me-2'/>
+                            {animation.jsName}
+                          </Dropdown.Item>
+
+                          <Dropdown.Item
+                            eventKey='4'
+                            onClick={() => handleDownloadFile(animation.pngUrl, animation.pngName)}
+                          >
+                            <FontAwesomeIcon icon={faDownload} className='me-2'/>
+                            {animation.pngName}
+                          </Dropdown.Item>
+                        </>
+                      ):(<></>)}
+                    </DropdownButton>
                   </div>
                   <img
-                    style={{ objectFit: 'contain', width: '100%', height: '100%'}}
+                    style={{
+                      objectFit: 'contain', width: '100%', height: '100%',
+                      boxShadow: '0 10px 25px 0 rgba(0, 0, 0, .5)'
+                    }}
                     src={animation.gifUrl}
                     alt={animation.name}
                   ></img>
@@ -207,18 +299,6 @@ const GalleryRenderer: React.FC<Props> = () => {
               )
             })}
           </div>
-          <ReactPaginate
-            previousLabel={<FontAwesomeIcon icon={faAngleLeft} className='me-3' />}
-            nextLabel={<FontAwesomeIcon icon={faAngleRight} className='ms-3' />}
-            breakLabel={'...'}
-            breakClassName={'break-me'}
-            pageCount={animationsPageLast}
-            marginPagesDisplayed={2}
-            pageRangeDisplayed={5}
-            onPageChange={(data: any) => setAnimationsPageCurrent(data.selected)}
-            containerClassName={'pagination'}
-            activeClassName={'active'}
-          />
         </div>
       )}
     </StyledGallery>

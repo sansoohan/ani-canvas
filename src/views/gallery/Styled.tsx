@@ -1,6 +1,10 @@
 import styled from 'styled-components';
 
 export const StyledGallery = styled.div`
+  .dropdown-toggle::after {
+    display: none;
+  }
+
   .pagination {
     margin: auto;
 
