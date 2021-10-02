@@ -114,7 +114,6 @@ export function AuthProvider({ children }: Props) {
   const removeSession = useCallback(async () => {
     const thisSessionId = getThisSessionId();
     if (thisSessionId) {
-      console.log(thisSessionId);
       removeThisSessionId();
       const sessionRef = [
         SHARE_PATH,

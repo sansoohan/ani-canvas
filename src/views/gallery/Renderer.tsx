@@ -42,21 +42,12 @@ const GalleryAnimationRenderer: React.FC<GalleryAnimationRendererProps> = ({
       }
     });
 
-    loader.loadManifest([{
-      src:"http://localhost:8700/v0/b/ani-canvas-598e9.appspot.com/o/local%2FaniCanvas%2Fgalleries%2FTxFovKhBGBgvfE7BB9uxduSgikrI%2Fannimations%2FfRTpvIKgiGa-QbqsxIUYS%2Fpng%2F_HTML5%20Canvas_atlas_1.png?alt=media&token=739af34c-0b76-43d5-b16b-295a8934618a", id:"_HTML5 Canvas_atlas_1"
-    }]);
+    loader.loadManifest(lib.properties.manifest);
   }
 
   const handleFileLoad = (evt: any, comp: any) => {
     const images=comp.getImages();	
     if (evt && (evt.item.type === "image")) { images[evt.item.id] = evt.result; }	
-  }
-
-  //Registers the "tick" event listener.
-  const fnStartAnimation = (stage: any, exportRoot: any, lib: any) => {
-    stage.addChild(exportRoot);
-    createjs.Ticker.framerate = lib.properties.fps;
-    createjs.Ticker.addEventListener("tick", stage);
   }
 
   const handleComplete = (evt: any, comp: any) => {
@@ -76,12 +67,23 @@ const GalleryAnimationRenderer: React.FC<GalleryAnimationRendererProps> = ({
     }
     const exportRoot = new lib._HTML5Canvas();
     const stage = new lib.Stage(canvasRef.current);
-    stage.enableMouseOver();	
+    stage.enableMouseOver();
+
+    //Registers the "tick" event listener.
+    const fnStartAnimation = () => {
+      stage.stage.getChildAt(0);
+      console.log(stage.stage);
+      stage.addChild(exportRoot);
+      createjs.Ticker.framerate = lib.properties.fps;
+      createjs.Ticker.addEventListener("tick", stage);
+    }
 
     //Code to support hidpi screens and responsive scaling.
     // AdobeAn.makeResponsive(false,'both',false,1,[canvasRef.current,animationContainer.current,domOverlayContainer.current]);
     AdobeAn.compositionLoaded(lib.properties.id);
-    fnStartAnimation(stage, exportRoot, lib);
+    fnStartAnimation();
+    // stage.stage.stop();
+    // fnStartAnimation();
   }
 
   useEffect(() => {
