@@ -17,7 +17,7 @@ interface GalleryValue {
   thisUser?: UserModel;
   userName: string;
   isLoading: boolean;
-  galleryAnimations: Array<AnimationModel>;
+  galleryPageAnimations: Array<AnimationModel>;
   animationsPageCurrent: number;
   animationsPageLast: number;
   galleryAnimationFilter: GalleryAnimationFilter;
@@ -31,6 +31,7 @@ interface GalleryValue {
   removeAnimation: (meta: AnimationModel) => Promise<void>;
   setAnimationsPageCurrent: (animationsPageCurrent: number) => void;
   setGalleryAnimationFilter: (galleryAnimationFilter: GalleryAnimationFilter) => void;
+  hasCollisionPngFile: (pngFile: File) => boolean;
 }
 
 const GalleryContext = React.createContext<GalleryValue | null>(null);
@@ -56,6 +57,7 @@ export function GalleryProvider({ children }: Props) {
   const [ animationsPerPage, ] = useState<number>(30);
   const [ isLoading, setIsLoading ] = useState<boolean>(true);
   const [ galleryAnimations, setGalleryAnimations ] = useState<Array<AnimationModel>>([]);
+  const [ galleryPageAnimations, setGalleryPageAnimations ] = useState<Array<AnimationModel>>([]);
   const [ galleryAnimationFilter, setGalleryAnimationFilter ] = useState<GalleryAnimationFilter>({
     createdAt: 'DESCENDING',
     name: 'NONE',
@@ -216,6 +218,10 @@ export function GalleryProvider({ children }: Props) {
     });
   }, [firestore, storage, thisUser, ANI_CANVAS_PATH, arrayRemove]);
 
+  const hasCollisionPngFile = useCallback((pngFile: File) => {
+    return !!galleryAnimations.find((animation) => animation.pngName === pngFile.name);
+  }, [galleryAnimations])
+
   useEffect(() => {
     let unsubscribeGallery = () => {};
 
@@ -247,13 +253,14 @@ export function GalleryProvider({ children }: Props) {
       unsubscribeGallery = onSnapshot(doc(firestore, galleryRef), (gallerySnapshot) => {
         const galleryModel = gallerySnapshot.data() as GalleryModel;
         if (!galleryModel) {
-          setGalleryAnimations([]);
+          setGalleryPageAnimations([]);
           setIsLoading(false);
           return;
         }
 
         const animations: Array<AnimationModel> = Object.assign([], galleryModel.animations);
         sortAnimation(animations);
+        setGalleryAnimations(animations);
 
         const animationIds = animations.map((animation) => animation.id);
         setAnimationPageLast(Math.floor((animationIds.length - 1) / animationsPerPage) + 1);
@@ -261,14 +268,14 @@ export function GalleryProvider({ children }: Props) {
         const startAnimation = animationsPageCurrent * animationsPerPage;
         const endAnimation = startAnimation + animationsPerPage;
         const selectedAnimations = animations.splice(startAnimation, endAnimation);
-        setGalleryAnimations(selectedAnimations);
+        setGalleryPageAnimations(selectedAnimations);
         setSession(galleryRef);
         setIsLoading(false);
       });
     });
 
     return () => {
-      setGalleryAnimations([]);
+      setGalleryPageAnimations([]);
       unsubscribeGallery();
       setIsLoading(true);
     }
@@ -278,7 +285,7 @@ export function GalleryProvider({ children }: Props) {
     thisUser,
     userName,
     isLoading,
-    galleryAnimations,
+    galleryPageAnimations,
     animationsPageCurrent,
     animationsPageLast,
     galleryAnimationFilter,
@@ -286,6 +293,7 @@ export function GalleryProvider({ children }: Props) {
     removeAnimation,
     setAnimationsPageCurrent,
     setGalleryAnimationFilter,
+    hasCollisionPngFile,
   };
 
   return (

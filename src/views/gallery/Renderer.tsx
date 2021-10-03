@@ -24,26 +24,34 @@ const GalleryAnimationRenderer: React.FC<GalleryAnimationRendererProps> = ({
   const domOverlayContainer = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const init = () => {
+  const init = useCallback(() => {
     const AdobeAn = (window as any)['AdobeAn'];
     if (!AdobeAn) {
       return;
     }
 
-    const comp=AdobeAn.getComposition("6D2E871EEB804D1693D8876BED1198AB");
+    // You must set different png file name
+    const comp: any = Object.values(AdobeAn.compositions).find((composition: any) => {
+      const libTmp=composition?.getLibrary();
+      const hasSamePngFile = libTmp?.properties?.manifest.find((image: {src: string, id: string}) => {
+        const isSamePgnFile = image.src.includes(animation.pngName);
+        if (isSamePgnFile) {
+          image.src = animation.pngUrl;
+        }
+        return isSamePgnFile;
+      });
+
+      return hasSamePngFile;
+    });
+
     let lib=comp.getLibrary();
     const loader = new createjs.LoadQueue(false);
     loader.addEventListener("fileload", function(evt: any){handleFileLoad(evt,comp)});
     loader.addEventListener("complete", function(evt: any){handleComplete(evt,comp)});
     lib=comp.getLibrary();
-    lib.properties.manifest.forEach((image: {src: string, id: string}) => {
-      if (image.src.includes(animation.pngName)) {
-        image.src = animation.pngUrl;
-      }
-    });
 
     loader.loadManifest(lib.properties.manifest);
-  }
+  }, [animation]);
 
   const handleFileLoad = (evt: any, comp: any) => {
     const images=comp.getImages();	
@@ -71,8 +79,6 @@ const GalleryAnimationRenderer: React.FC<GalleryAnimationRendererProps> = ({
 
     //Registers the "tick" event listener.
     const fnStartAnimation = () => {
-      stage.stage.getChildAt(0);
-      console.log(stage.stage);
       stage.addChild(exportRoot);
       createjs.Ticker.framerate = lib.properties.fps;
       createjs.Ticker.addEventListener("tick", stage);
@@ -82,8 +88,6 @@ const GalleryAnimationRenderer: React.FC<GalleryAnimationRendererProps> = ({
     // AdobeAn.makeResponsive(false,'both',false,1,[canvasRef.current,animationContainer.current,domOverlayContainer.current]);
     AdobeAn.compositionLoaded(lib.properties.id);
     fnStartAnimation();
-    // stage.stage.stop();
-    // fnStartAnimation();
   }
 
   useEffect(() => {
@@ -97,23 +101,23 @@ const GalleryAnimationRenderer: React.FC<GalleryAnimationRendererProps> = ({
     return () => {
       document.body.removeChild(script);
     }
-  }, []);
+  }, [animation, init]);
 
   return (
     <>
       {animation?.jsUrl && animation?.pngUrl ? (
         <div ref={animationContainer}
           className='position-relative bg-white'
-          style={{ width: '100%', aspectRatio: '4/3' }}
+          style={{ width: '100%', height: 'calc(100% - 3rem)', boxShadow: '0 10px 25px 0 rgba(0, 0, 0, .5)' }}
         >
           <canvas id="canvas" width="437" height="617"
             className='position-absolute bg-white'
-            style={{ width: '100%', aspectRatio: '4/3', objectFit: 'contain' }}
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             ref={canvasRef}>
           </canvas>
           <div ref={domOverlayContainer}
             className='position-absolute'
-            style={{ width: '100%', aspectRatio: '4/3', pointerEvents: 'none' }}
+            style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
           >
           </div>
         </div>
@@ -139,12 +143,13 @@ const GalleryRenderer: React.FC<Props> = () => {
     userName,
     isLoading,
     animationsPageLast,
-    galleryAnimations,
+    galleryPageAnimations,
     galleryAnimationFilter,
     uploadAnimation,
     removeAnimation,
     setAnimationsPageCurrent,
     setGalleryAnimationFilter,
+    hasCollisionPngFile,
   } = useGallery();
 
   const filterIconMap: any = {
@@ -195,6 +200,15 @@ const GalleryRenderer: React.FC<Props> = () => {
         showError({
           title: 'Upload Animation',
           text: 'Please Select .fla File',
+          timer: 0,
+        });
+        return;
+      }
+
+      if (hasCollisionPngFile(pngFile)) {
+        showError({
+          title: 'Upload Animation',
+          text: 'Same name png file is exist. Please Change png file name',
           timer: 0,
         });
         return;
@@ -328,7 +342,7 @@ const GalleryRenderer: React.FC<Props> = () => {
         </div>
       ) : (<></>)}
         
-      {!isLoading && galleryAnimations.length === 0 ? (
+      {!isLoading && galleryPageAnimations.length === 0 ? (
         <div className='container p-2 d-flex flex-column'>
           <div className='alert alert-secondary text-center fs-3' role='alert'>
             No Animation
@@ -337,14 +351,17 @@ const GalleryRenderer: React.FC<Props> = () => {
       ):(
         <div className='container p-2 d-flex flex-column'>
           <div className='row'>
-            {galleryAnimations.map((animation) => {
+            {galleryPageAnimations.map((animation) => {
               return (
                 <div
                   key={animation.id}
                   className='m-auto'
-                  style={{ width: '33.3%', height: '33.3%'}}
+                  style={{ width: '33.3%', height: '30vh' }}
                 >
-                  <div className='d-flex' style={{ width: '100%'}}>
+                  <div
+                    className='d-flex bg-warning'
+                    style={{ width: '100%', height: '3rem', boxShadow: '0 10px 25px 0 rgba(0, 0, 0, .5)'}}
+                  >
                     <span className='me-auto text-dark text-break fs-5 my-2 ms-2'>
                       {animation.name}
                     </span>
