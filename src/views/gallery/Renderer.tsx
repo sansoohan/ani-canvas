@@ -108,16 +108,16 @@ const GalleryAnimationRenderer: React.FC<GalleryAnimationRendererProps> = ({
       {animation?.jsUrl && animation?.pngUrl ? (
         <div ref={animationContainer}
           className='position-relative bg-white'
-          style={{ width: '100%', aspectRatio: '4/3' }}
+          style={{ width: '100%', height: 'calc(100% - 3rem)', boxShadow: '0 10px 25px 0 rgba(0, 0, 0, .5)' }}
         >
           <canvas id="canvas" width="437" height="617"
             className='position-absolute bg-white'
-            style={{ width: '100%', aspectRatio: '4/3', objectFit: 'contain' }}
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             ref={canvasRef}>
           </canvas>
           <div ref={domOverlayContainer}
             className='position-absolute'
-            style={{ width: '100%', aspectRatio: '4/3', pointerEvents: 'none' }}
+            style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
           >
           </div>
         </div>
@@ -356,9 +356,12 @@ const GalleryRenderer: React.FC<Props> = () => {
                 <div
                   key={animation.id}
                   className='m-auto'
-                  style={{ width: '33.3%', height: '33.3%'}}
+                  style={{ width: '33.3%', height: '30vh' }}
                 >
-                  <div className='d-flex' style={{ width: '100%'}}>
+                  <div
+                    className='d-flex bg-warning'
+                    style={{ width: '100%', height: '3rem', boxShadow: '0 10px 25px 0 rgba(0, 0, 0, .5)'}}
+                  >
                     <span className='me-auto text-dark text-break fs-5 my-2 ms-2'>
                       {animation.name}
                     </span>
