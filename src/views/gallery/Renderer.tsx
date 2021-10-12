@@ -4,12 +4,12 @@ import { ButtonGroup, Dropdown, DropdownButton } from 'react-bootstrap';
 import { nanoid } from 'nanoid';
 import React, { useCallback, useEffect, useRef } from 'react';
 import ReactPaginate from 'react-paginate';
-import inputForm from '../../helpers/toaster/form/inputForm';
 import showError from '../../helpers/toaster/message/showError';
 import showSuccess from '../../helpers/toaster/message/showSuccess';
 import { AnimationModel, GalleryAnimationFilter } from './animation/model';
 import { useGallery } from './Provider';
 import { StyledGallery } from './Styled';
+import inputForm from '../../helpers/toaster/form/inputForm';
 
 const createjs = (window as any)['createjs'];
 
@@ -30,18 +30,22 @@ const GalleryAnimationRenderer: React.FC<GalleryAnimationRendererProps> = ({
       return;
     }
 
+    const imageOrSounds = [...animation.images, ...animation.sounds];
     // You must set different png file name
     const comp: any = Object.values(AdobeAn.compositions).find((composition: any) => {
       const libTmp=composition?.getLibrary();
-      const hasSamePngFile = libTmp?.properties?.manifest.find((image: {src: string, id: string}) => {
-        const isSamePgnFile = image.src.includes(animation.pngName);
-        if (isSamePgnFile) {
-          image.src = animation.pngUrl;
-        }
-        return isSamePgnFile;
+      const hasSameResourceFile = libTmp?.properties?.manifest.find((resouce: {src: string, id: string}) => {
+        return !!imageOrSounds.find((imageOrSound) => {
+          const isSameResourceFile = resouce.src.includes(imageOrSound.name);
+          if (isSameResourceFile) {
+            resouce.src = imageOrSound.url;
+          }
+
+          return isSameResourceFile;
+        });
       });
 
-      return hasSamePngFile;
+      return hasSameResourceFile;
     });
 
     let lib=comp.getLibrary();
@@ -105,10 +109,10 @@ const GalleryAnimationRenderer: React.FC<GalleryAnimationRendererProps> = ({
 
   return (
     <>
-      {animation?.jsUrl && animation?.pngUrl ? (
+      {animation?.jsUrl && animation.images.length > 0 ? (
         <div ref={animationContainer}
           className='position-relative bg-white'
-          style={{ width: '100%', height: 'calc(100% - 3rem)', boxShadow: '0 10px 25px 0 rgba(0, 0, 0, .5)' }}
+          style={{ width: '100%', height: 'calc(100% - 3rem)' }}
         >
           <canvas id="canvas" width="437" height="617"
             className='position-absolute bg-white'
@@ -123,10 +127,7 @@ const GalleryAnimationRenderer: React.FC<GalleryAnimationRendererProps> = ({
         </div>
       ):(
         <img
-          style={{
-            objectFit: 'contain', width: '100%', height: '100%',
-            boxShadow: '0 10px 25px 0 rgba(0, 0, 0, .5)'
-          }}
+          style={{ width: '100%', height: 'calc(100% - 3rem)', objectFit: 'contain' }}
           src={animation.gifUrl}
           alt={animation.name}
         ></img>
@@ -149,7 +150,7 @@ const GalleryRenderer: React.FC<Props> = () => {
     removeAnimation,
     setAnimationsPageCurrent,
     setGalleryAnimationFilter,
-    hasCollisionPngFile,
+    hasCollisionImageFileName,
   } = useGallery();
 
   const filterIconMap: any = {
@@ -180,12 +181,13 @@ const GalleryRenderer: React.FC<Props> = () => {
         gifFile: {label: '.gif File', value: '', type: 'file', fileType: 'image/gif'},
         flaFile: {label: '.fla File', value: '', type: 'file'},
         jsFile: {label: '.js File', value: '', type: 'file', fileType: 'application/javascript'},
-        pngFile: {label: '.png File', value: '', type: 'file', fileType: 'image/png'},
+        imageFiles: {label: '.png Files', value: '', type: 'files', fileType: 'image/png'},
+        soundFiles: {label: '.wav Files', value: '', type: 'files', fileType: 'audio/wav'},
       }
     )
 
     if (res?.value) {
-      const { gifFile, flaFile, jsFile, pngFile } = res.value;
+      const { gifFile, flaFile, jsFile, imageFiles, soundFiles } = res.value;
 
       if (!gifFile) {
         showError({
@@ -205,10 +207,10 @@ const GalleryRenderer: React.FC<Props> = () => {
         return;
       }
 
-      if (hasCollisionPngFile(pngFile)) {
+      if (hasCollisionImageFileName(imageFiles)) {
         showError({
           title: 'Upload Animation',
-          text: 'Same name png file is exist. Please Change png file name',
+          text: 'Same name png file is exist. Please Change image file name and pulish',
           timer: 0,
         });
         return;
@@ -224,8 +226,9 @@ const GalleryRenderer: React.FC<Props> = () => {
           Object.assign({}, newAnimation),
           gifFile,
           flaFile,
+          imageFiles,
+          soundFiles,
           jsFile,
-          pngFile,
         );
 
         showSuccess({
@@ -241,7 +244,7 @@ const GalleryRenderer: React.FC<Props> = () => {
         });
       }
     }
-  }, [uploadAnimation]);
+  }, [uploadAnimation, hasCollisionImageFileName]);
 
   const handleRemoveAnimation = useCallback(async (animation: AnimationModel) => {
     const res = await inputForm(
@@ -355,77 +358,88 @@ const GalleryRenderer: React.FC<Props> = () => {
               return (
                 <div
                   key={animation.id}
-                  className='m-auto'
+                  className='m-auto p-2'
                   style={{ width: '33.3%', height: '30vh' }}
                 >
                   <div
-                    className='d-flex bg-warning'
-                    style={{ width: '100%', height: '3rem', boxShadow: '0 10px 25px 0 rgba(0, 0, 0, .5)'}}
+                    style={{
+                      width: '100%', height: '100%',
+                      boxShadow: '0 10px 25px 0 rgba(0, 0, 0, .5)'
+                    }}
                   >
-                    <span className='me-auto text-dark text-break fs-5 my-2 ms-2'>
-                      {animation.name}
-                    </span>
 
-                    <DropdownButton
-                      menuAlign={dropMenualine}
-                      as={ButtonGroup}
-                      key={dropDirection}
-                      id={`dropdown-button-drop-${dropDirection}`}
-                      className={'dropdown-buttons ms-auto my-2 me-2'}
-                      size='sm'
-                      drop={dropDirection}
-                      variant=''
-                      title={<FontAwesomeIcon icon={faEllipsisV}/>}
+                    <div
+                      className='d-flex bg-warning'
+                      style={{ width: '100%', height: '3rem'}}
                     >
-                      {thisUser?.name === userName ? (
+                      <span className='me-auto text-dark text-break fs-5 my-2 ms-2'>
+                        {animation.name}
+                      </span>
+
+                      <DropdownButton
+                        menuAlign={dropMenualine}
+                        as={ButtonGroup}
+                        key={dropDirection}
+                        id={`dropdown-button-drop-${dropDirection}`}
+                        className={'dropdown-buttons ms-auto my-2 me-2'}
+                        size='sm'
+                        drop={dropDirection}
+                        variant=''
+                        title={<FontAwesomeIcon icon={faEllipsisV}/>}
+                      >
+                        {thisUser?.name === userName ? (
+                          <Dropdown.Item
+                            eventKey='0'
+                            onClick={() => handleRemoveAnimation(animation)}
+                          >
+                            <FontAwesomeIcon icon={faTrash} className='me-2'/>
+                            Remove
+                          </Dropdown.Item>
+                        ):(<></>)}
+
                         <Dropdown.Item
-                          eventKey='0'
-                          onClick={() => handleRemoveAnimation(animation)}
+                          eventKey='1'
+                          onClick={() => handleDownloadFile(animation.gifUrl, animation.gifName)}
                         >
-                          <FontAwesomeIcon icon={faTrash} className='me-2'/>
-                          Remove
+                          <FontAwesomeIcon icon={faDownload} className='me-2'/>
+                          {animation.gifName}
                         </Dropdown.Item>
-                      ):(<></>)}
 
-                      <Dropdown.Item
-                        eventKey='1'
-                        onClick={() => handleDownloadFile(animation.gifUrl, animation.gifName)}
-                      >
-                        <FontAwesomeIcon icon={faDownload} className='me-2'/>
-                        {animation.gifName}
-                      </Dropdown.Item>
+                        <Dropdown.Item
+                          eventKey='2'
+                          onClick={() => handleDownloadFile(animation.flaUrl, animation.flaName)}
+                        >
+                          <FontAwesomeIcon icon={faDownload} className='me-2'/>
+                          {animation.flaName}
+                        </Dropdown.Item>
 
-                      <Dropdown.Item
-                        eventKey='2'
-                        onClick={() => handleDownloadFile(animation.flaUrl, animation.flaName)}
-                      >
-                        <FontAwesomeIcon icon={faDownload} className='me-2'/>
-                        {animation.flaName}
-                      </Dropdown.Item>
+                        {animation?.jsName && animation.images.length > 0 ? (
+                          <>
+                            <Dropdown.Item
+                              eventKey='3'
+                              onClick={() => handleDownloadFile(animation.jsUrl, animation.jsName)}
+                            >
+                              <FontAwesomeIcon icon={faDownload} className='me-2'/>
+                              {animation.jsName}
+                            </Dropdown.Item>
+                            
+                            {animation.images.map((image, index) => (
+                              <Dropdown.Item
+                                key={`image${index}`}
+                                eventKey={`image${index}`}
+                                onClick={() => handleDownloadFile(image.url, image.name)}
+                              >
+                                <FontAwesomeIcon icon={faDownload} className='me-2'/>
+                                {image.name}
+                              </Dropdown.Item>
+                            ))}
+                          </>
+                        ):(<></>)}
+                      </DropdownButton>
+                    </div>
 
-                      {animation?.jsName && animation?.pngName ? (
-                        <>
-                          <Dropdown.Item
-                            eventKey='3'
-                            onClick={() => handleDownloadFile(animation.jsUrl, animation.jsName)}
-                          >
-                            <FontAwesomeIcon icon={faDownload} className='me-2'/>
-                            {animation.jsName}
-                          </Dropdown.Item>
-
-                          <Dropdown.Item
-                            eventKey='4'
-                            onClick={() => handleDownloadFile(animation.pngUrl, animation.pngName)}
-                          >
-                            <FontAwesomeIcon icon={faDownload} className='me-2'/>
-                            {animation.pngName}
-                          </Dropdown.Item>
-                        </>
-                      ):(<></>)}
-                    </DropdownButton>
+                    <GalleryAnimationRenderer animation={animation}></GalleryAnimationRenderer>
                   </div>
-
-                  <GalleryAnimationRenderer animation={animation}></GalleryAnimationRenderer>
                 </div>
               )
             })}

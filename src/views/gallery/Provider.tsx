@@ -25,13 +25,14 @@ interface GalleryValue {
     meta: AnimationModel,
     gifFile: File,
     flaFile: File,
+    imageFiles: Array<File>,
+    soundFiles: Array<File>,
     jsFile?: File,
-    pngFile?: File,
   ) => Promise<void>;
   removeAnimation: (meta: AnimationModel) => Promise<void>;
   setAnimationsPageCurrent: (animationsPageCurrent: number) => void;
   setGalleryAnimationFilter: (galleryAnimationFilter: GalleryAnimationFilter) => void;
-  hasCollisionPngFile: (pngFile: File) => boolean;
+  hasCollisionImageFileName: (imageFile: Array<File>) => boolean;
 }
 
 const GalleryContext = React.createContext<GalleryValue | null>(null);
@@ -112,8 +113,9 @@ export function GalleryProvider({ children }: Props) {
     meta: AnimationModel,
     gifFile: File,
     flaFile: File,
+    imageFiles: Array<File>,
+    soundFiles: Array<File>,
     jsFile?: File,
-    pngFile?: File,
   ) => {
     if (!thisUser) {
       return;
@@ -136,51 +138,71 @@ export function GalleryProvider({ children }: Props) {
       `fla/${flaFile.name}`,
     ].join('/');
 
-    let uploadPromises = [
-      uploadBytes(
-        storageRef(storage, gifFileRef), gifFile, {contentType: gifFile.type}
-      ),
-      uploadBytes(
-        storageRef(storage, flaFileRef), flaFile, {contentType: flaFile.type}
-      )
-    ];
+    await uploadBytes(
+      storageRef(storage, gifFileRef), gifFile, {contentType: gifFile.type}
+    )
+      .then((uploadTask) => getDownloadURL(uploadTask.ref))
+      .then((url) => {
+        meta.gifUrl = url;
+        meta.gifName = gifFile.name;
+      });
 
-    if (jsFile && pngFile) {
+    await uploadBytes(
+      storageRef(storage, flaFileRef), flaFile, {contentType: flaFile.type}
+    )
+      .then((uploadTask) => getDownloadURL(uploadTask.ref))
+      .then((url) => {
+        meta.flaUrl = url;
+        meta.flaName = flaFile.name;
+      });
+
+    if (jsFile && imageFiles.length > 0) {
       const jsFileRef = [
         gallaryRef,
         `annimations/${meta.id}`,
         `js/${jsFile.name}`,
       ].join('/');
+
+      await uploadBytes(
+        storageRef(storage, jsFileRef), jsFile, {contentType: jsFile.type}
+      )
+        .then((uploadTask) => getDownloadURL(uploadTask.ref))
+        .then((url) => {
+          meta.jsUrl = url;
+          meta.jsName = jsFile.name;
+        });
   
-      const pngFileRef = [
-        gallaryRef,
-        `annimations/${meta.id}`,
-        `png/${pngFile.name}`,
-      ].join('/');
+      for (const imageFile of imageFiles) { 
+        const imageFileRef = [
+          gallaryRef,
+          `annimations/${meta.id}`,
+          `images/${imageFile.name}`,
+        ].join('/');
 
-      uploadPromises = [
-        ...uploadPromises,
-        uploadBytes(
-          storageRef(storage, jsFileRef), jsFile, {contentType: jsFile.type}
-        ),
-        uploadBytes(
-          storageRef(storage, pngFileRef), pngFile, {contentType: pngFile.type}
-        ),
-      ];
-    }
+        await uploadBytes(
+          storageRef(storage, imageFileRef), imageFile, {contentType: imageFile.type}
+        )
+          .then((uploadTask) => getDownloadURL(uploadTask.ref))
+          .then((url) => {
+            meta.images.push({url, name: imageFile.name});
+          });
+      };
 
-    const uploadTasks = await Promise.all(uploadPromises);
-
-    meta.gifUrl = await getDownloadURL(uploadTasks[0].ref);
-    meta.gifName = gifFile.name;
-    meta.flaUrl = await getDownloadURL(uploadTasks[1].ref);
-    meta.flaName = flaFile.name;
-
-    if (jsFile && pngFile) {
-      meta.jsUrl = await getDownloadURL(uploadTasks[2].ref);
-      meta.jsName = jsFile.name;
-      meta.pngUrl = await getDownloadURL(uploadTasks[3].ref);
-      meta.pngName = pngFile.name;
+      for (const soundFile of soundFiles) { 
+        const soundFileRef = [
+          gallaryRef,
+          `annimations/${meta.id}`,
+          `sounds/${soundFile.name}`,
+        ].join('/');
+  
+        await uploadBytes(
+          storageRef(storage, soundFileRef), soundFile, {contentType: soundFile.type}
+        )
+          .then((uploadTask) => getDownloadURL(uploadTask.ref))
+          .then((url) => {
+            meta.sounds.push({url, name: soundFile.name});
+          });
+      };
     }
 
     return updateDoc(doc(firestore, gallaryRef), {
@@ -207,9 +229,13 @@ export function GalleryProvider({ children }: Props) {
       deletePromises.push(deleteObject(storageRef(storage, meta.jsUrl)));
     }
 
-    if (meta.pngUrl) {
-      deletePromises.push(deleteObject(storageRef(storage, meta.pngUrl)));
-    }
+    meta.images.forEach((image) => {
+      deletePromises.push(deleteObject(storageRef(storage, image.url)));
+    })
+
+    meta.sounds.forEach((sound) => {
+      deletePromises.push(deleteObject(storageRef(storage, sound.url)));
+    })
 
     await Promise.all(deletePromises);
 
@@ -218,8 +244,12 @@ export function GalleryProvider({ children }: Props) {
     });
   }, [firestore, storage, thisUser, ANI_CANVAS_PATH, arrayRemove]);
 
-  const hasCollisionPngFile = useCallback((pngFile: File) => {
-    return !!galleryAnimations.find((animation) => animation.pngName === pngFile.name);
+  const hasCollisionImageFileName = useCallback((imageFiles: Array<File>) => {
+    return !!galleryAnimations.find((animation) => {
+      return !!imageFiles.find((imageFile) => {
+        return animation.images.map(image => image.name).includes(imageFile.name);
+      });
+    });
   }, [galleryAnimations])
 
   useEffect(() => {
@@ -235,14 +265,8 @@ export function GalleryProvider({ children }: Props) {
 
       let userIds = userDoc?.ref?.id;
       if (!userIds) {
-        if (thisUser && userName === thisUser.name) {
-          console.log('init');
-          await initThisUserGallery();
-          userIds = thisUser.id;
-        } else {
-          history.push(routes.HOME);
-          return;
-        }
+        history.push(routes.HOME);
+        return;
       }
 
       const galleryRef = [
@@ -253,12 +277,18 @@ export function GalleryProvider({ children }: Props) {
       unsubscribeGallery = onSnapshot(doc(firestore, galleryRef), (gallerySnapshot) => {
         const galleryModel = gallerySnapshot.data() as GalleryModel;
         if (!galleryModel) {
+          if (thisUser && userName === thisUser.name) {
+            console.log('init');
+            initThisUserGallery();
+            userIds = thisUser.id;
+          }
+
           setGalleryPageAnimations([]);
           setIsLoading(false);
           return;
         }
 
-        const animations: Array<AnimationModel> = Object.assign([], galleryModel.animations);
+        const animations: Array<AnimationModel> = galleryModel?.animations || [];
         sortAnimation(animations);
         setGalleryAnimations(animations);
 
@@ -293,7 +323,7 @@ export function GalleryProvider({ children }: Props) {
     removeAnimation,
     setAnimationsPageCurrent,
     setGalleryAnimationFilter,
-    hasCollisionPngFile,
+    hasCollisionImageFileName,
   };
 
   return (
