@@ -35,6 +35,7 @@ export function NavProvider({ children }: Props) {
     doSignInWithGoogle,
     doCreateUserWithEmailAndPasswordAndName,
     checkUserEmailCollision,
+    checkUserNameCollision,
     doSendEmailVerification,
     setUserCredential,
     doSignOut,
@@ -128,7 +129,16 @@ export function NavProvider({ children }: Props) {
           });
           return;
         }
-  
+
+        const isNameOk = await checkUserNameCollision(name);
+        if (!isNameOk) {
+          showError({
+            title: 'Sign Up',
+            text: 'Please use another User Name',
+          });
+          return;
+        }
+
         await doCreateUserWithEmailAndPasswordAndName(email, name, password);
         await doSendEmailVerification();
         showInfo({

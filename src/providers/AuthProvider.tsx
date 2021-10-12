@@ -18,6 +18,7 @@ import { useHistory } from 'react-router-dom';
 import { setThisSessionId, getThisSessionId, removeThisSessionId } from '../sessionStorage/thisSessionId';
 import { remove, ref, onDisconnect, set } from 'firebase/database';
 import { collection, doc, getDocs, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { nanoid } from 'nanoid';
 
 type Props = {
   children: ReactNode;
@@ -43,6 +44,7 @@ interface AuthValue {
   doUpdatePassword: (password: string) => Promise<void>;
   doCreateUserWithEmailAndPasswordAndName: (email: string, name: string, password: string) => Promise<void>;
   checkUserEmailCollision: (userEmail: string) => Promise<boolean>;
+  checkUserNameCollision: (userName: string) => Promise<boolean>;
 }
 
 const AuthContext = React.createContext<AuthValue | null>(null);
@@ -108,6 +110,12 @@ export function AuthProvider({ children }: Props) {
       SHARE_PATH,
       `users/${userModel.id}`,
     ].join('/');
+
+    const isNameOk = await checkUserNameCollision(userModel.name);
+    if(!isNameOk){
+      userModel.name = userModel.name + nanoid(5);
+    }
+
     return setDoc(doc(firestore, userRef), Object.assign({}, userModel))
   }, [SHARE_PATH, firestore]);
 
@@ -172,6 +180,17 @@ export function AuthProvider({ children }: Props) {
     return isEmailOk;
   }
 
+  const checkUserNameCollision = async (userName: string): Promise<boolean> => {
+    const usersRef = [
+      SHARE_PATH,
+      `users`
+    ].join('/');
+    const q = query(collection(firestore, usersRef), where('name', '==', userName));
+    const snapshot = await getDocs(q);
+    const isNameOk = (snapshot?.size || 0) === 0;
+    return isNameOk;
+  }
+
   useEffect(() => {
     let unsubscribeUser = () => {};
     const unsubscribeOnAuthStateChanged = auth.onAuthStateChanged(async (user) => {
@@ -189,7 +208,7 @@ export function AuthProvider({ children }: Props) {
               ref: [SHARE_PATH, `users/${user.uid}`].join('/'),
               email: user?.email || '',
               name: user?.displayName || user?.email || '',
-            })
+            });
             await createUserIfNotExist(userData);
             window.location.reload();
             return;
@@ -222,6 +241,7 @@ export function AuthProvider({ children }: Props) {
     doUpdatePassword,
     doCreateUserWithEmailAndPasswordAndName,
     checkUserEmailCollision,
+    checkUserNameCollision,
   };
 
   return (

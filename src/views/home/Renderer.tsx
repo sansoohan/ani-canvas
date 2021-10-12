@@ -12,9 +12,7 @@ const HomeRenderer: React.FC<Props> = () => {
     return (<Redirect to={generatePath(routes.GALLERY, { userName: thisUser.name })}/>)
   }
 
-  return (
-    <></>
-  )
+  return (<Redirect to={generatePath(routes.GALLERY, { userName: 'Sansoo Han' })}/>)
 }
 
 export default HomeRenderer;
