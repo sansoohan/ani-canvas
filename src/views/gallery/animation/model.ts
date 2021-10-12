@@ -21,8 +21,8 @@ export class AnimationModel {
   flaUrl: string;
   jsName: string;
   jsUrl: string;
-  pngName: string;
-  pngUrl: string;
+  images: Array<{name: string, url: string}>;
+  sounds: Array<{name: string, url: string}>;
   constructor({id, name}: {
     id: string,
     name: string,
@@ -36,8 +36,8 @@ export class AnimationModel {
     this.flaUrl = '';
     this.jsName = '';
     this.jsUrl = '';
-    this.pngName = '';
-    this.pngUrl = '';
+    this.images = [];
+    this.sounds = [];
   }
 
   static index (user?: AnimationModel): AnimationIndex {

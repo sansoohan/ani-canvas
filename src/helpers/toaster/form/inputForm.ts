@@ -25,6 +25,25 @@ const line: {[s: string]: (key: string, input: FormInputData) => string} = {
       </div>
     `
   },
+  files: (key: string, input: FormInputData) => {
+    const column = input.column || [4, 8];
+    return `
+      <div class="form-group row mt-2">
+        <span class="my-auto ms-auto col-${column[0]} text-end text-break">${input.label}</span>
+        <div class="me-auto col-${column[1]}">
+          <input
+            id="swal-input-${key}"
+            type="file"
+            ${input?.fileType ? `accept=${input.fileType}` : ''}
+            class="form-control me-auto col-${column[1]} text-start text-break"
+            value="${input.value}"
+            ${input?.disabled ? 'style="color:grey" disabled' : ''}
+            multiple
+          />
+        </div>
+      </div>
+    `
+  },
   text: (key: string, input: FormInputData) => {
     const column = input.column || [4, 8];
     return `
@@ -223,6 +242,19 @@ export default function inputForm(
       document.getElementById('input')
       if (inputMap[key].type === 'file') {
         result = (document.getElementById(`swal-input-${key}`) as HTMLInputElement)?.files?.[0];
+      } else if (inputMap[key].type === 'files') {
+        const fileList = (document.getElementById(`swal-input-${key}`) as HTMLInputElement)?.files;
+        const files: Array<File> = [];
+        if (!fileList) {
+          result = [];
+          continue;
+        }
+
+        for (let i = 0; i < fileList.length || 0; i++) {
+          files.push(fileList[i]);
+        }
+
+        result = files;
       } else if (inputMap[key].type === 'month') {
         const dateString = (document.getElementById(`swal-input-${key}`) as HTMLInputElement)?.value;
         result = Number(moment(dateString));
