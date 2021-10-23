@@ -19,8 +19,12 @@ const line: {[s: string]: (key: string, input: FormInputData) => string} = {
             ${input?.fileType ? `accept=${input.fileType}` : ''}
             class="form-control me-auto col-${column[1]} text-start text-break"
             value="${input.value}"
+            aria-describedby="swal-input-${key}-feedback"
+            required
+            onclick="this.classList.remove('is-invalid')"
             ${input?.disabled ? 'style="color:grey" disabled' : ''}
           />
+          <div id="swal-input-${key}-feedback" class="invalid-feedback"></div>
         </div>
       </div>
     `
@@ -55,8 +59,12 @@ const line: {[s: string]: (key: string, input: FormInputData) => string} = {
             type="text"
             class="form-control me-auto col-${column[1]} text-start text-break"
             value="${input.value}"
+            aria-describedby="swal-input-${key}-feedback"
+            required
+            onclick="this.classList.remove('is-invalid')"
             ${input?.disabled ? 'style="color:grey" disabled' : ''}
-          />
+          />    
+          <div id="swal-input-${key}-feedback" class="invalid-feedback"></div>
         </div>
       </div>
     `
@@ -73,8 +81,12 @@ const line: {[s: string]: (key: string, input: FormInputData) => string} = {
             rows="5"
             class="form-control text-start text-break"
             value="${input.value}"
+            aria-describedby="swal-input-${key}-feedback"
+            required
+            onclick="this.classList.remove('is-invalid')"
             ${input?.disabled ? 'style="color:grey" disabled' : ''}
           ></textarea>
+          <div id="swal-input-${key}-feedback" class="invalid-feedback"></div>
         </div>
       </div>
     `
@@ -90,8 +102,12 @@ const line: {[s: string]: (key: string, input: FormInputData) => string} = {
             type="password"
             class="form-control text-start text-break"
             value="${input.value}"
+            aria-describedby="swal-input-${key}-feedback"
+            required
+            onclick="this.classList.remove('is-invalid')"
             ${input?.disabled ? 'style="color:grey" disabled' : ''}
           />
+          <div id="swal-input-${key}-feedback" class="invalid-feedback"></div>
         </div>
       </div>
     `
@@ -176,10 +192,10 @@ const line: {[s: string]: (key: string, input: FormInputData) => string} = {
           output.value = moment(date).format("YYYY-MM-DD");
         },
         position: 'tr',
-        customDays: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
+        customDays: ['日', '月', '火', '水', '木', '金', '土'],
         customMonths: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
-        overlayButton: 'Confirm',
-        overlayPlaceholder: '4 Digit',
+        overlayButton: '確認',
+        overlayPlaceholder: '4桁の数字',
       })
     }, 50);
 
@@ -193,14 +209,17 @@ const line: {[s: string]: (key: string, input: FormInputData) => string} = {
             class="form-control"
             value="${moment(input.value).format("YYYY-MM-DD")}"
             readonly="readonly"
+            aria-describedby="swal-input-${key}-feedback"
+            required
+            onclick="this.classList.remove('is-invalid')"
             ${input?.disabled ? 'style="color:grey" disabled' : ''}
           />
+          <div id="swal-input-${key}-feedback" class="invalid-feedback"></div>
         </div>
       </div>
     `
   },
 }
-
 
 export type FormInputData = {
   label: string,
@@ -210,6 +229,8 @@ export type FormInputData = {
   select?: Array<SelectOption>,
   column?: Array<number>,
   fileType?: string,
+  validations?: Array<(val: string) => Promise<string>>,
+  canBeNull?: boolean,
 }
 
 export type SelectOption = {
@@ -235,13 +256,19 @@ export default function inputForm(
     </div>
   `;
 
-  option.preConfirm = () => new Promise((resolve) => {
+  option.preConfirm = () => new Promise(async (resolve) => {
     const callbacks: any = {}
+    let hasError = false;
+
     for (const key in inputMap) {
       let result: any;
-      document.getElementById('input')
+      const inputEl = document.getElementById(`swal-input-${key}`);
+      if (!inputEl) {
+        continue;
+      }
+
       if (inputMap[key].type === 'file') {
-        result = (document.getElementById(`swal-input-${key}`) as HTMLInputElement)?.files?.[0];
+        result = (inputEl as HTMLInputElement)?.files?.[0];
       } else if (inputMap[key].type === 'files') {
         const fileList = (document.getElementById(`swal-input-${key}`) as HTMLInputElement)?.files;
         const files: Array<File> = [];
@@ -256,25 +283,73 @@ export default function inputForm(
 
         result = files;
       } else if (inputMap[key].type === 'month') {
-        const dateString = (document.getElementById(`swal-input-${key}`) as HTMLInputElement)?.value;
+        const dateString = (inputEl as HTMLInputElement)?.value;
         result = Number(moment(dateString));
       } else if (inputMap[key].type === 'date') {
-        const dateString = (document.getElementById(`swal-input-${key}`) as HTMLInputElement)?.value;
+        const dateString = (inputEl as HTMLInputElement)?.value;
         result = Number(moment(dateString));
       } else if (inputMap[key].type === 'radio') {
-        var radios = document.getElementsByName(`swal-input-${key}`) as NodeListOf<HTMLInputElement>
+        const radios = document.getElementsByName(`swal-input-${key}`) as NodeListOf<HTMLInputElement>
         radios.forEach((radio) => {
           if (radio.checked) {
             result = radio.value;
           }
         });
       } else if (inputMap[key].type === 'check') {
-        result = (document.getElementById(`swal-input-${key}`) as HTMLInputElement)?.checked;
+        result = (inputEl as HTMLInputElement)?.checked;
       } else {
-        result = (document.getElementById(`swal-input-${key}`) as HTMLInputElement)?.value;
+        result = (inputEl as HTMLInputElement)?.value;
       }
       callbacks[key] = result;
+
+      const inputError = document.getElementById(`swal-input-${key}-feedback`);
+      if (!inputError) {
+        continue;
+      }
+
+      if (
+        !result
+        && !inputMap[key].canBeNull
+        && ['date', 'text', 'textarea', 'file', 'password'].includes(inputMap[key].type || 'text')
+      ) {
+        hasError = true;
+        inputError.innerHTML = inputMap[key].type === 'file'
+          ? 'ファイルを選択してください'
+          : '入力してください';
+        inputEl.classList.add('is-invalid');
+
+        continue;
+      }
+
+      if (
+        inputMap[key].validations
+        && ['date', 'text', 'textarea', 'password'].includes(inputMap[key].type || 'text')
+      ) {
+        let errorMessages: Array<string> = [];
+
+        for (const validationFunction
+          of inputMap[key].validations as Array<(val: string) => Promise<string>>
+        ) {
+          const errorMessage = await validationFunction(result as string);
+          if (errorMessage) {
+            errorMessages.push(errorMessage);
+          }
+        }
+
+        if (errorMessages.length > 0) {
+          hasError = true;
+          inputError.innerHTML = errorMessages.join('\n');
+          inputEl.classList.add('is-invalid');
+
+          continue;
+        }
+      }
     }
+
+    if (hasError) {
+      Swal.showValidationMessage('入力エラーがあります');
+    }
+
     resolve(callbacks);
   });;
 

@@ -3,18 +3,26 @@ import { nanoid } from "nanoid";
 export type GalleryAnimationFilter = {
   name: string;
   createdAt: string;
-}
+};
 
 export type AnimationIndex = {
   id: string;
   createdAt: number;
   name: string;
-}
+};
+
+export type SlackModel = {
+  token: string;
+  channel: string;
+  ts?: string;
+  name?: string;
+};
 
 export class AnimationModel {
   id: string;
   createdAt: number;
   name: string;
+  slack: SlackModel;
   gifName: string;
   gifUrl: string;
   flaName: string;
@@ -38,6 +46,7 @@ export class AnimationModel {
     this.jsUrl = '';
     this.images = [];
     this.sounds = [];
+    this.slack = {token: '',channel: ''};
   }
 
   static index (user?: AnimationModel): AnimationIndex {

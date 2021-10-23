@@ -1,4 +1,4 @@
-import { faAngleLeft, faAngleRight, faSort, faSortDown, faSortUp, faSync, faTrash, faDownload, faEllipsisV } from '@fortawesome/free-solid-svg-icons';
+import { faAngleLeft, faAngleRight, faSort, faSortDown, faSortUp, faSync, faTrash, faCheck, faDownload, faEllipsisV } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { ButtonGroup, Dropdown, DropdownButton } from 'react-bootstrap';
 import { nanoid } from 'nanoid';
@@ -146,11 +146,16 @@ const GalleryRenderer: React.FC<Props> = () => {
     animationsPageLast,
     galleryPageAnimations,
     galleryAnimationFilter,
+    currentSlack,
+    slacks,
     uploadAnimation,
     removeAnimation,
     setAnimationsPageCurrent,
     setGalleryAnimationFilter,
     hasCollisionImageFileName,
+    addSlack,
+    removeSlack,
+    updateCurrentSlack,
   } = useGallery();
 
   const filterIconMap: any = {
@@ -162,13 +167,46 @@ const GalleryRenderer: React.FC<Props> = () => {
   const dropDirection = 'down';
   const dropMenualine = 'right';
 
+  const handleAddSlack = useCallback(async () => {
+    const res: any = await inputForm({
+      title: 'Add Slack Channel',
+    }, {
+      token: {label: 'Slack Token', value: ''},
+      channel: {label: 'Channel Id', value: ''},
+      name: {label: 'Channel Name', value: ''},
+    });
+
+    if (res?.value) {
+      try {
+        await addSlack(res?.value);
+        showSuccess({
+          title: 'Add Slack Channel',
+          text: 'Slack Channel is added!',
+          timer: 1000,
+        });
+      } catch (error: any) {
+        showError({
+          title: 'Upload Animation Error',
+          text: error.message,
+          timer: 0,
+        });
+      }
+    }
+  }, [addSlack]);
+
   const handleDownloadFile = (fileUrl: string, fileName: string) => {
-    const a = document.createElement('a');
-    document.body.appendChild(a);
-    a.download = fileName;
-    a.href = fileUrl;
-    a.click();
-    a.remove();
+    fetch(fileUrl).then((res) => res.blob()).then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      document.body.appendChild(a);
+      a.download = fileName;
+      a.href = url;
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 200)
+    });
   }
 
   const handleUploadAnimation = useCallback(async () => {
@@ -180,7 +218,13 @@ const GalleryRenderer: React.FC<Props> = () => {
       {
         gifFile: {label: '.gif File', value: '', type: 'file', fileType: 'image/gif'},
         flaFile: {label: '.fla File', value: '', type: 'file'},
-        jsFile: {label: '.js File', value: '', type: 'file', fileType: 'application/javascript'},
+        jsFile: {
+          label: '.js File',
+          value: '',
+          type: 'file',
+          fileType: 'application/javascript',
+          canBeNull: true,
+        },
         imageFiles: {label: '.png Files', value: '', type: 'files', fileType: 'image/png'},
         soundFiles: {label: '.wav Files', value: '', type: 'files', fileType: 'audio/wav'},
       }
@@ -188,24 +232,6 @@ const GalleryRenderer: React.FC<Props> = () => {
 
     if (res?.value) {
       const { gifFile, flaFile, jsFile, imageFiles, soundFiles } = res.value;
-
-      if (!gifFile) {
-        showError({
-          title: 'Upload Animation',
-          text: 'Please Select .gif File',
-          timer: 0,
-        });
-        return;
-      }
-
-      if (!flaFile) {
-        showError({
-          title: 'Upload Animation',
-          text: 'Please Select .fla File',
-          timer: 0,
-        });
-        return;
-      }
 
       if (hasCollisionImageFileName(imageFiles)) {
         showError({
@@ -278,7 +304,7 @@ const GalleryRenderer: React.FC<Props> = () => {
   return (
     <StyledGallery>
       <div className='container p-2 d-flex flex-row'>
-        <div className='me-auto my-auto'>
+        <div className='my-auto col-3'>
           <span
             className='text-center me-2'
             onClick={() => {
@@ -307,25 +333,89 @@ const GalleryRenderer: React.FC<Props> = () => {
           </span>
         </div>
 
-        <ReactPaginate
-          previousLabel={<FontAwesomeIcon icon={faAngleLeft} className='me-3' />}
-          nextLabel={<FontAwesomeIcon icon={faAngleRight} className='ms-3' />}
-          breakLabel={'...'}
-          breakClassName={'break-me'}
-          pageCount={animationsPageLast}
-          marginPagesDisplayed={1}
-          pageRangeDisplayed={3}
-          onPageChange={(data: any) => setAnimationsPageCurrent(data.selected)}
-          containerClassName={'pagination'}
-          activeClassName={'active'}
-        />
+        <div className='d-flex col-6'>
+          <ReactPaginate
+            previousLabel={<FontAwesomeIcon icon={faAngleLeft} className='me-3' />}
+            nextLabel={<FontAwesomeIcon icon={faAngleRight} className='ms-3' />}
+            breakLabel={'...'}
+            breakClassName={'break-me'}
+            pageCount={animationsPageLast}
+            marginPagesDisplayed={1}
+            pageRangeDisplayed={3}
+            onPageChange={(data: any) => setAnimationsPageCurrent(data.selected)}
+            containerClassName={'pagination'}
+            activeClassName={'active'}
+          />
+        </div>
 
         {thisUser?.name === userName ? (
-          <div className='ms-auto my-auto'>
-            <button
-              className='btn btn-outline-primary'
-              onClick={handleUploadAnimation}
-            >Upload Animation</button>
+          <div className='my-auto col-3 d-flex'>
+            <div className='ms-auto my-auto'>
+              <button
+                className='btn btn-outline-primary'
+                onClick={handleUploadAnimation}
+              >Upload Animation</button>
+            </div>
+
+            <DropdownButton
+              menuAlign={dropMenualine}
+              as={ButtonGroup}
+              key={dropDirection}
+              id={`dropdown-button-drop-${dropDirection}`}
+              className={'dropdown-buttons ms-2 p-0 btn btn-outline-secondary'}
+              size='sm'
+              drop={dropDirection}
+              variant=''
+              title={'Slack'}
+            >
+              <Dropdown.Item
+                eventKey='0'
+                onClick={handleAddSlack}
+              >
+                Add Slack Channel
+              </Dropdown.Item>
+
+              <Dropdown.Divider />
+
+              <Dropdown.Header>Slack Channel</Dropdown.Header>
+              {
+                slacks.map((slack) => (
+                  <Dropdown.Item
+                    key={slack.channel}
+                    eventKey={slack.channel}
+                  >
+                    {slack.name}
+                    <button
+                      className={
+                        `btn btn-sm ms-2 ${slack.channel === currentSlack?.channel
+                          ? 'btn-success'
+                          : 'btn-outline-secondary'
+                        }`
+                      }
+                      disabled={slack.channel === currentSlack?.channel}
+                      onClick={() => {
+                        if (slack.channel !== currentSlack?.channel) {
+                          updateCurrentSlack(slack);
+                        }
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faCheck} />
+                    </button>
+                    <button
+                      className='btn btn-sm btn-secondary ms-2'
+                      onClick={() => {
+                        removeSlack(slack);
+                        if (slack.channel === currentSlack?.channel) {
+                          updateCurrentSlack(null);
+                        }
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faTrash} />
+                    </button>
+                  </Dropdown.Item>
+                ))
+              }
+            </DropdownButton>
           </div>
         ):(<></>)}
       </div>
