@@ -2,12 +2,14 @@ import { collection, doc, getDocs, onSnapshot, query, setDoc, updateDoc, where }
 import { ref as storageRef, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
 import React, { useContext, ReactNode, useEffect, useState, useCallback } from 'react';
 import { useHistory, useParams } from 'react-router-dom';
+import { WebClient } from '@slack/web-api';
 import routes from '../../constants/routes';
 import { useAuth } from '../../providers/AuthProvider';
 import { useFirebase } from '../../providers/FirebaseProvider';
 import { UserModel } from '../user/model';
-import { AnimationIndex, AnimationModel, GalleryAnimationFilter } from './animation/model';
+import { AnimationIndex, AnimationModel, GalleryAnimationFilter, SlackModel } from './animation/model';
 import { GalleryModel } from './model';
+import { ref, get, onValue, off, set, remove } from 'firebase/database';
 
 type Props = {
   children: ReactNode;
@@ -21,6 +23,8 @@ interface GalleryValue {
   animationsPageCurrent: number;
   animationsPageLast: number;
   galleryAnimationFilter: GalleryAnimationFilter;
+  currentSlack?: SlackModel;
+  slacks: Array<SlackModel>;
   uploadAnimation: (
     meta: AnimationModel,
     gifFile: File,
@@ -33,6 +37,9 @@ interface GalleryValue {
   setAnimationsPageCurrent: (animationsPageCurrent: number) => void;
   setGalleryAnimationFilter: (galleryAnimationFilter: GalleryAnimationFilter) => void;
   hasCollisionImageFileName: (imageFile: Array<File>) => boolean;
+  addSlack: (slackModel: SlackModel) => Promise<void>;
+  removeSlack: (slackModel: SlackModel) => Promise<void>;
+  updateCurrentSlack: (slackModel: SlackModel|null) => Promise<void>;
 }
 
 const GalleryContext = React.createContext<GalleryValue | null>(null);
@@ -50,7 +57,7 @@ export function useGallery(): GalleryValue {
 export function GalleryProvider({ children }: Props) {
   const { userName } = useParams<any>();
   const { thisUser, setSession } = useAuth();
-  const { ANI_CANVAS_PATH, SHARE_PATH, firestore, storage, arrayUnion, arrayRemove } = useFirebase();
+  const { ANI_CANVAS_PATH, SHARE_PATH, firestore, database, storage, arrayUnion, arrayRemove } = useFirebase();
   const history = useHistory();
 
   const [ animationsPageCurrent, setAnimationsPageCurrent ] = useState<number>(0);
@@ -63,6 +70,8 @@ export function GalleryProvider({ children }: Props) {
     createdAt: 'DESCENDING',
     name: 'NONE',
   });
+  const [ currentSlack, setCurrentSlack ] = useState<SlackModel>();
+  const [ slacks, setSlacks ] = useState<Array<SlackModel>>([]);
 
   // Sorting Priority : createdAt > name
   const sortAnimation = useCallback((animations: Array<AnimationIndex|AnimationModel>) => {
@@ -97,9 +106,9 @@ export function GalleryProvider({ children }: Props) {
 
     const galleryRef = [
       ANI_CANVAS_PATH,
-      `galleries/${thisUser.id}`,
+      `galleries/${thisUser?.id}`,
     ].join('/');
-
+  
     const newGallery = new GalleryModel({
       id: thisUser.id,
       ref: galleryRef,
@@ -121,19 +130,19 @@ export function GalleryProvider({ children }: Props) {
       return;
     }
 
-    const gallaryRef = [
+    const galleryRef = [
       ANI_CANVAS_PATH,
       `galleries/${thisUser.id}`,
     ].join('/');
 
     const gifFileRef = [
-      gallaryRef,
+      galleryRef,
       `annimations/${meta.id}`,
       `gif/${gifFile.name}`,
     ].join('/');
 
     const flaFileRef = [
-      gallaryRef,
+      galleryRef,
       `annimations/${meta.id}`,
       `fla/${flaFile.name}`,
     ].join('/');
@@ -158,7 +167,7 @@ export function GalleryProvider({ children }: Props) {
 
     if (jsFile && imageFiles.length > 0) {
       const jsFileRef = [
-        gallaryRef,
+        galleryRef,
         `annimations/${meta.id}`,
         `js/${jsFile.name}`,
       ].join('/');
@@ -174,7 +183,7 @@ export function GalleryProvider({ children }: Props) {
   
       for (const imageFile of imageFiles) { 
         const imageFileRef = [
-          gallaryRef,
+          galleryRef,
           `annimations/${meta.id}`,
           `images/${imageFile.name}`,
         ].join('/');
@@ -190,7 +199,7 @@ export function GalleryProvider({ children }: Props) {
 
       for (const soundFile of soundFiles) { 
         const soundFileRef = [
-          gallaryRef,
+          galleryRef,
           `annimations/${meta.id}`,
           `sounds/${soundFile.name}`,
         ].join('/');
@@ -203,19 +212,55 @@ export function GalleryProvider({ children }: Props) {
             meta.sounds.push({url, name: soundFile.name});
           });
       };
-    }
 
-    return updateDoc(doc(firestore, gallaryRef), {
-      animations: arrayUnion(Object.assign({}, meta)),
-    });
-  }, [firestore, storage, thisUser, ANI_CANVAS_PATH, arrayUnion]);
+      const blocks: Array<any> = [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `<${window.location.href}|${meta.name}>`,
+          },
+        },
+        {
+          type: "image",
+          "image_url": meta.gifUrl,
+          "alt_text": "Animated Gif Image",
+        }
+      ]
+
+      try {
+        if (currentSlack) {
+          const web = new WebClient(currentSlack.token);
+          const res = await web.chat.postMessage({
+            channel: currentSlack.channel,
+            text: meta.name,
+            blocks,
+          });
+  
+          const slack = {
+            token: currentSlack.token,
+            channel: currentSlack.channel,
+            ts: `${res.ts}`,
+          };
+  
+          meta.slack = slack;
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        updateDoc(doc(firestore, galleryRef), {
+          animations: arrayUnion(Object.assign({}, meta)),
+        })
+      }
+    }
+  }, [firestore, storage, currentSlack, database, thisUser, ANI_CANVAS_PATH, arrayUnion]);
 
   const removeAnimation = useCallback(async (meta: AnimationModel) => {
     if (!thisUser) {
       return;
     }
 
-    const gallaryRef = [
+    const galleryRef = [
       ANI_CANVAS_PATH,
       `galleries/${thisUser.id}`,
     ].join('/');
@@ -238,8 +283,15 @@ export function GalleryProvider({ children }: Props) {
     })
 
     await Promise.all(deletePromises);
+    if (meta?.slack?.channel && meta?.slack?.ts) {
+      const web = new WebClient(meta?.slack?.token);
+      web.chat.delete({
+        channel: meta.slack.channel,
+        ts: meta.slack.ts,
+      });
+    }
 
-    return updateDoc(doc(firestore, gallaryRef), {
+    return updateDoc(doc(firestore, galleryRef), {
       animations: arrayRemove(Object.assign({}, meta)),
     });
   }, [firestore, storage, thisUser, ANI_CANVAS_PATH, arrayRemove]);
@@ -262,7 +314,6 @@ export function GalleryProvider({ children }: Props) {
     const q = query(collection(firestore, usersRef), where('name', '==', userName));
     getDocs(q).then(async (usersSnapshot) => {
       const [userDoc] = usersSnapshot.docs;
-
       let userIds = userDoc?.ref?.id;
       if (!userIds) {
         history.push(routes.HOME);
@@ -311,6 +362,86 @@ export function GalleryProvider({ children }: Props) {
     }
   }, [ANI_CANVAS_PATH, thisUser, SHARE_PATH, animationsPageCurrent, animationsPerPage, firestore, history, initThisUserGallery, setSession, sortAnimation, userName]);
 
+  const addSlack = useCallback(async (slackModel: SlackModel) => {
+    const slackRef = [
+      ANI_CANVAS_PATH,
+      `galleries/${thisUser?.id}`,
+      `slacks/${slackModel.channel}`,
+    ].join('/');
+
+    return set(ref(database, slackRef), slackModel);
+  }, [database, ANI_CANVAS_PATH, thisUser?.id]);
+
+  const removeSlack = useCallback(async (slackModel: SlackModel) => {
+    const slackRef = [
+      ANI_CANVAS_PATH,
+      `galleries/${thisUser?.id}`,
+      `slacks/${slackModel.channel}`,
+    ].join('/');
+
+    return remove(ref(database, slackRef));
+  }, [database, ANI_CANVAS_PATH, thisUser?.id]);
+  
+  const updateCurrentSlack = useCallback(async (slackModel: SlackModel|null) => {
+    const currentSlackRef = [
+      ANI_CANVAS_PATH,
+      `galleries/${thisUser?.id}`,
+      'currentSlack',
+    ].join('/');
+
+    return set(ref(database, currentSlackRef), slackModel);
+  }, [database, ANI_CANVAS_PATH, thisUser?.id]);
+
+  useEffect(() => {
+    if (!thisUser?.id) {
+      return;
+    }
+
+    const slacksRef = [
+      ANI_CANVAS_PATH,
+      `galleries/${thisUser?.id}`,
+      'slacks',
+    ].join('/');
+
+    const slacksDatabase = ref(database, slacksRef);
+    onValue(slacksDatabase, (snapshot) => {
+      const slacksTmp: Array<SlackModel> = [];
+      snapshot.forEach((pageIndexesSnapshot) => {
+        slacksTmp.push(pageIndexesSnapshot.val() as SlackModel);
+      });
+      setSlacks(slacksTmp);
+    }, (error: any) => {
+      console.error(`slacksDatabase read failed: ${error.code}`);
+    });
+
+    return () => {
+      off(slacksDatabase, 'value');
+    }
+  }, [database, ANI_CANVAS_PATH, thisUser?.id, setCurrentSlack]);
+
+  useEffect(() => {
+    if (!thisUser?.id) {
+      return;
+    }
+
+    const currentSlackRef = [
+      ANI_CANVAS_PATH,
+      `galleries/${thisUser?.id}`,
+      'currentSlack',
+    ].join('/');
+
+    const currentSlackDatabase = ref(database, currentSlackRef);
+    onValue(currentSlackDatabase, (snapshot) => {
+      setCurrentSlack(snapshot.val());
+    }, (errorObject: any) => {
+      console.error(`currentSlackDatabase read failed: ${errorObject.code}`);
+    });
+
+    return () => {
+      off(currentSlackDatabase, 'value');
+    }
+  }, [database, ANI_CANVAS_PATH, thisUser?.id, setCurrentSlack]);
+
   const providerValue = {
     thisUser,
     userName,
@@ -319,11 +450,16 @@ export function GalleryProvider({ children }: Props) {
     animationsPageCurrent,
     animationsPageLast,
     galleryAnimationFilter,
+    currentSlack,
+    slacks,
     uploadAnimation,
     removeAnimation,
     setAnimationsPageCurrent,
     setGalleryAnimationFilter,
     hasCollisionImageFileName,
+    addSlack,
+    removeSlack,
+    updateCurrentSlack,
   };
 
   return (

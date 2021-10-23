@@ -95,7 +95,7 @@ export function useFirebase(): FirebaseValue {
 }
 
 export function FirebaseProvider({ children }: Props) {
-  const ANI_CANVAS_PATH = process.env.REACT_APP_FIREBASE_ANI_CANVAS_PATH_PATH;
+  const ANI_CANVAS_PATH = process.env.REACT_APP_FIREBASE_ANI_CANVAS_PATH;
   const SHARE_PATH = process.env.REACT_APP_FIREBASE_SHARE_PATH;
 
   const providerValue = {

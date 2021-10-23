@@ -17,6 +17,18 @@
         "ENV": {
         	".write": false,
         	".read": false
+        },
+        "galleries": {
+          "$galleryId": {
+            "currentSlack": {
+              ".write": "$galleryId == auth.uid",
+              ".read": "$galleryId == auth.uid"
+            },
+            "slacks": {
+              ".write": "$galleryId == auth.uid",
+              ".read": "$galleryId == auth.uid"
+            }
+          }
         }
       }
 		},
@@ -37,6 +49,18 @@
         "ENV": {
         	".write": false,
         	".read": false
+        },
+        "galleries": {
+          "$galleryId": {
+            "currentSlack": {
+              ".write": "$galleryId == auth.uid",
+              ".read": "$galleryId == auth.uid"
+            },
+            "slacks": {
+              ".write": "$galleryId == auth.uid",
+              ".read": "$galleryId == auth.uid"
+            }
+          }
         }
       }
 		},
@@ -57,6 +81,18 @@
         "ENV": {
         	".write": false,
         	".read": false
+        },
+        "galleries": {
+          "$galleryId": {
+            "currentSlack": {
+              ".write": "$galleryId == auth.uid",
+              ".read": "$galleryId == auth.uid"
+            },
+            "slacks": {
+              ".write": "$galleryId == auth.uid",
+              ".read": "$galleryId == auth.uid"
+            }
+          }
         }
       }
     }
